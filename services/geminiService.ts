@@ -1,6 +1,18 @@
 import { GoogleGenAI } from "@google/genai";
 
-const apiKey = process.env.API_KEY || '';
+const resolveApiKey = (): string => {
+  const browserEnv = typeof import.meta !== 'undefined' ? import.meta.env : undefined;
+
+  return (
+    browserEnv?.VITE_GEMINI_API_KEY ||
+    browserEnv?.GEMINI_API_KEY ||
+    (typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : undefined) ||
+    (typeof process !== 'undefined' ? process.env.API_KEY : undefined) ||
+    ''
+  );
+};
+
+const apiKey = resolveApiKey();
 
 export const generateProductDescription = async (productName: string, keywords: string): Promise<string> => {
   if (!apiKey) {
