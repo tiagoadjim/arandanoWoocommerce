@@ -2,12 +2,14 @@ import { Product, Order, StoreSettings, Coupon } from '../types';
 
 // --- Helpers ---
 
-const getHeaders = (settings: StoreSettings) => {
-    const auth = btoa(`${settings.consumerKey}:${settings.consumerSecret}`);
-    return {
-        'Authorization': `Basic ${auth}`,
-        'Content-Type': 'application/json'
-    };
+const getHeaders = (method: string = 'GET') => {
+    const headers: Record<string, string> = {};
+
+    if (method !== 'GET') {
+        headers['Content-Type'] = 'application/json';
+    }
+
+    return headers;
 };
 
 const getBaseUrl = (settings: StoreSettings) => {
@@ -19,19 +21,26 @@ const getBaseUrl = (settings: StoreSettings) => {
     return `${cleanUrl}/wp-json/wc/v3`;
 };
 
+const withAuthParams = (url: string, settings: StoreSettings) => {
+    const urlObj = new URL(url);
+    urlObj.searchParams.set('consumer_key', settings.consumerKey);
+    urlObj.searchParams.set('consumer_secret', settings.consumerSecret);
+    return urlObj.toString();
+};
+
 // --- Connection Check ---
 
 export const checkConnection = async (settings: StoreSettings): Promise<boolean> => {
     if (!settings.url || !settings.consumerKey || !settings.consumerSecret) return false;
     try {
         // Try to fetch system status or just one product to validate keys
-        const response = await fetch(`${getBaseUrl(settings)}/system_status`, { 
-            headers: getHeaders(settings) 
+        const response = await fetch(withAuthParams(`${getBaseUrl(settings)}/system_status`, settings), {
+            headers: getHeaders()
         });
         // Some servers might block system_status, try products if that fails or returns 401/403
         if (!response.ok) {
-             const prodResponse = await fetch(`${getBaseUrl(settings)}/products?per_page=1`, { 
-                headers: getHeaders(settings) 
+             const prodResponse = await fetch(withAuthParams(`${getBaseUrl(settings)}/products?per_page=1`, settings), {
+                headers: getHeaders()
             });
             return prodResponse.ok;
         }
@@ -48,7 +57,7 @@ export const fetchProducts = async (settings: StoreSettings): Promise<Product[]>
   if (!settings.url) throw new Error("URL de la tienda no configurada");
 
   try {
-      const response = await fetch(`${getBaseUrl(settings)}/products?per_page=20`, { headers: getHeaders(settings) });
+      const response = await fetch(withAuthParams(`${getBaseUrl(settings)}/products?per_page=20`, settings), { headers: getHeaders() });
       if (!response.ok) {
           const errText = await response.text();
           throw new Error(`Error ${response.status}: ${errText}`);
@@ -69,9 +78,9 @@ export const saveProduct = async (settings: StoreSettings, product: Partial<Prod
     
     const method = product.id ? 'PUT' : 'POST';
 
-    const response = await fetch(url, {
+    const response = await fetch(withAuthParams(url, settings), {
         method,
-        headers: getHeaders(settings),
+        headers: getHeaders(method),
         body: JSON.stringify(product)
     });
     if (!response.ok) throw new Error("Error al guardar producto");
@@ -84,7 +93,7 @@ export const fetchOrders = async (settings: StoreSettings): Promise<Order[]> => 
   if (!settings.url) throw new Error("URL de la tienda no configurada");
 
   try {
-      const response = await fetch(`${getBaseUrl(settings)}/orders?per_page=20`, { headers: getHeaders(settings) });
+      const response = await fetch(withAuthParams(`${getBaseUrl(settings)}/orders?per_page=20`, settings), { headers: getHeaders() });
       if (!response.ok) throw new Error("Error al obtener ordenes");
       return await response.json();
   } catch (error) {
@@ -96,9 +105,9 @@ export const fetchOrders = async (settings: StoreSettings): Promise<Order[]> => 
 export const updateOrderStatus = async (settings: StoreSettings, orderId: number, status: string): Promise<Order> => {
     if (!settings.url) throw new Error("URL de la tienda no configurada");
     
-    const response = await fetch(`${getBaseUrl(settings)}/orders/${orderId}`, {
+    const response = await fetch(withAuthParams(`${getBaseUrl(settings)}/orders/${orderId}`, settings), {
         method: 'PUT',
-        headers: getHeaders(settings),
+        headers: getHeaders('PUT'),
         body: JSON.stringify({ status })
     });
     if (!response.ok) throw new Error("Error al actualizar orden");
@@ -110,7 +119,7 @@ export const updateOrderStatus = async (settings: StoreSettings, orderId: number
 export const fetchCoupons = async (settings: StoreSettings): Promise<Coupon[]> => {
     if (!settings.url) throw new Error("URL de la tienda no configurada");
 
-    const response = await fetch(`${getBaseUrl(settings)}/coupons`, { headers: getHeaders(settings) });
+    const response = await fetch(withAuthParams(`${getBaseUrl(settings)}/coupons`, settings), { headers: getHeaders() });
     if (!response.ok) throw new Error("Error al obtener cupones");
     return await response.json();
 };
@@ -118,9 +127,9 @@ export const fetchCoupons = async (settings: StoreSettings): Promise<Coupon[]> =
 export const createCoupon = async (settings: StoreSettings, coupon: Partial<Coupon>): Promise<Coupon> => {
     if (!settings.url) throw new Error("URL de la tienda no configurada");
 
-    const response = await fetch(`${getBaseUrl(settings)}/coupons`, {
+    const response = await fetch(withAuthParams(`${getBaseUrl(settings)}/coupons`, settings), {
         method: 'POST',
-        headers: getHeaders(settings),
+        headers: getHeaders('POST'),
         body: JSON.stringify(coupon)
     });
     if (!response.ok) throw new Error("Error al crear cupón");
@@ -130,9 +139,9 @@ export const createCoupon = async (settings: StoreSettings, coupon: Partial<Coup
 export const deleteCoupon = async (settings: StoreSettings, id: number): Promise<boolean> => {
     if (!settings.url) throw new Error("URL de la tienda no configurada");
 
-    const response = await fetch(`${getBaseUrl(settings)}/coupons/${id}?force=true`, {
+    const response = await fetch(withAuthParams(`${getBaseUrl(settings)}/coupons/${id}?force=true`, settings), {
         method: 'DELETE',
-        headers: getHeaders(settings)
+        headers: getHeaders('DELETE')
     });
     return response.ok;
 };
