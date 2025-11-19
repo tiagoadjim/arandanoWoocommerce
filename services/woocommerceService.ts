@@ -13,11 +13,20 @@ const getHeaders = (method: string = 'GET') => {
 };
 
 const getBaseUrl = (settings: StoreSettings) => {
-    // Remove trailing slashes and ensure /wp-json/wc/v3
-    const cleanUrl = settings.url.replace(/\/$/, "");
-    if (cleanUrl.includes('/wp-json')) {
-         return cleanUrl;
+    // Remove trailing slashes and normalize Woocommerce REST base path
+    const cleanUrl = settings.url.replace(/\/+$/, "");
+
+    // If user already provided the full wc endpoint, just use it
+    if (/\/wp-json\/wc\/v\d+$/i.test(cleanUrl)) {
+        return cleanUrl;
     }
+
+    // If user provided the wp-json root only, append the wc namespace
+    if (/\/wp-json$/i.test(cleanUrl)) {
+        return `${cleanUrl}/wc/v3`;
+    }
+
+    // Otherwise assume it's the store root URL
     return `${cleanUrl}/wp-json/wc/v3`;
 };
 
